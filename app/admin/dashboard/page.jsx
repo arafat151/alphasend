@@ -37,6 +37,22 @@ export default function AdminDashboard() {
     fetchAll();
   }
 
+  async function deletePayment(id) {
+    if (!confirm("Delete this payment?")) return;
+    setLoading((p) => ({ ...p, [id]: true }));
+    await fetch("/api/admin/payments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ payment_id: id, action: "delete" }) });
+    setLoading((p) => ({ ...p, [id]: false }));
+    fetchAll();
+  }
+
+  async function deleteClient(id) {
+    if (!confirm("Delete this client? This cannot be undone.")) return;
+    setLoading((p) => ({ ...p, [id]: true }));
+    await fetch("/api/admin/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_id: id, action: "delete" }) });
+    setLoading((p) => ({ ...p, [id]: false }));
+    fetchAll();
+  }
+
   async function saveSettings() {
     await fetch("/api/admin/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(settings) });
     setSaved(true); setTimeout(() => setSaved(false), 2000);
@@ -62,9 +78,13 @@ export default function AdminDashboard() {
             <span className="text-xl font-bold">{settings.site_name || "AlphaSend"}</span>
             <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">Admin</span>
           </div>
-          {pending.length > 0 && <span className="bg-amber-500 text-black text-xs font-bold px-2.5 py-1 rounded-full">{pending.length} pending</span>}
+          <div className="flex items-center gap-3">
+            {pending.length > 0 && <span className="bg-amber-500 text-black text-xs font-bold px-2.5 py-1 rounded-full">{pending.length} pending</span>}
+            <span className="text-xs text-gray-600">Auto-refresh: 5s</span>
+          </div>
         </div>
       </header>
+
       <div className="border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-6 flex gap-1">
           {["payments","clients","settings"].map((t) => (
@@ -74,6 +94,7 @@ export default function AdminDashboard() {
           ))}
         </div>
       </div>
+
       <main className="max-w-7xl mx-auto px-6 py-8">
         {tab==="payments" && (
           <div className="space-y-4">
@@ -92,20 +113,24 @@ export default function AdminDashboard() {
                     <p className="text-sm text-gray-400">TxID: <span className="text-white font-mono">{p.transaction_id}</span></p>
                     <p className="text-xs text-gray-600">{new Date(p.created_at).toLocaleString()}</p>
                   </div>
-                  {p.status==="pending" && (
-                    <div className="flex gap-2 flex-shrink-0">
-                      <button onClick={() => handlePaymentAction(p.id,"approve")} disabled={loading[p.id]} className="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">{loading[p.id]?"...":"Approve"}</button>
-                      <button onClick={() => handlePaymentAction(p.id,"reject")} disabled={loading[p.id]} className="bg-red-900/50 hover:bg-red-900 text-red-400 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">Reject</button>
-                    </div>
-                  )}
+                  <div className="flex gap-2 flex-shrink-0 flex-col items-end">
+                    {p.status==="pending" && (
+                      <div className="flex gap-2">
+                        <button onClick={() => handlePaymentAction(p.id,"approve")} disabled={loading[p.id]} className="bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg">{loading[p.id]?"...":"Approve"}</button>
+                        <button onClick={() => handlePaymentAction(p.id,"reject")} disabled={loading[p.id]} className="bg-red-900/50 hover:bg-red-900 text-red-400 text-xs font-medium px-3 py-1.5 rounded-lg">Reject</button>
+                      </div>
+                    )}
+                    <button onClick={() => deletePayment(p.id)} disabled={loading[p.id]} className="text-xs text-gray-600 hover:text-red-400 transition-colors">🗑 Delete</button>
+                  </div>
                 </div>
               ))
             }
           </div>
         )}
+
         {tab==="clients" && (
           <div className="space-y-4">
-            <h2 className="text-lg font-semibold">All Clients</h2>
+            <h2 className="text-lg font-semibold">Clients with Plans</h2>
             <div className="overflow-x-auto rounded-xl border border-gray-800">
               <table className="w-full text-sm">
                 <thead className="bg-gray-900 text-gray-400 text-xs uppercase tracking-wider">
@@ -118,7 +143,12 @@ export default function AdminDashboard() {
                       <td className="px-5 py-4 text-gray-400 font-mono text-xs">{c.gmail_user}</td>
                       <td className="px-5 py-4">{c.daily_limit}</td>
                       <td className="px-5 py-4"><span className={`text-xs px-2 py-1 rounded-full ${c.status==="active"?"bg-emerald-900/40 text-emerald-400":"bg-red-900/40 text-red-400"}`}>{c.status}</span></td>
-                      <td className="px-5 py-4"><button onClick={() => toggleClient(c.id,c.status)} disabled={loading[c.id]} className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${c.status==="active"?"bg-red-900/30 text-red-400 hover:bg-red-900/60":"bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/60"}`}>{loading[c.id]?"...":c.status==="active"?"Deactivate":"Activate"}</button></td>
+                      <td className="px-5 py-4">
+                        <div className="flex gap-2">
+                          <button onClick={() => toggleClient(c.id,c.status)} disabled={loading[c.id]} className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 ${c.status==="active"?"bg-red-900/30 text-red-400 hover:bg-red-900/60":"bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/60"}`}>{loading[c.id]?"...":c.status==="active"?"Deactivate":"Activate"}</button>
+                          <button onClick={() => deleteClient(c.id)} disabled={loading[c.id]} className="text-xs text-gray-600 hover:text-red-400 transition-colors px-2">🗑</button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -126,6 +156,7 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
         {tab==="settings" && (
           <div className="max-w-xl space-y-5">
             <h2 className="text-lg font-semibold">Admin Settings</h2>
