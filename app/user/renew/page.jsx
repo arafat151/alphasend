@@ -43,6 +43,7 @@ export default function RenewPage() {
     window.addEventListener("mouseup", onMouseUp);
     return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
   }, []);
+
   const priceUSD = parseFloat((daily * 0.01).toFixed(2));
   const priceBDT = Math.round(priceUSD * parseInt(settings.usd_to_bdt_rate || RATE));
 
@@ -56,7 +57,6 @@ export default function RenewPage() {
     });
   }, []);
 
-  // Sync gmail slots with gmailsNeeded
   useEffect(() => {
     setGmails((prev) => {
       const next = [...prev];
@@ -108,7 +108,6 @@ export default function RenewPage() {
       </nav>
 
       <main className="max-w-xl mx-auto px-6 py-10">
-        {/* Step indicator */}
         <div className="flex items-center gap-2 mb-8">
           {["Plan", "Gmail Setup", "Payment", "Done"].map((s, i) => (
             <div key={s} className="flex items-center gap-2 flex-1">
@@ -121,17 +120,14 @@ export default function RenewPage() {
           ))}
         </div>
 
-        {/* Step 1 — Plan */}
         {step === 1 && (
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
             <h2 className="font-bold text-lg">Choose your plan</h2>
             <p className="text-xs text-gray-400">$0.01/email/month · Every 500/day needs 1 Gmail</p>
-
             <div className="text-center py-3">
               <p className="text-4xl font-extrabold text-white">{daily.toLocaleString()}<span className="text-lg text-gray-500 font-normal"> emails/day</span></p>
               <p className="text-indigo-400 font-semibold mt-1">${(daily*0.01).toFixed(2)}/mo <span className="text-gray-500 text-sm">≈ {Math.round(daily*0.01*parseInt(settings.usd_to_bdt_rate||RATE))} BDT</span></p>
             </div>
-
             <div>
               <div className="flex justify-between text-xs text-gray-600 mb-2">
                 <span>100/day</span><span>5,000/day</span>
@@ -155,17 +151,14 @@ export default function RenewPage() {
                 ))}
               </div>
             </div>
-
             <div className="bg-gray-800/50 rounded-xl p-3 text-sm flex justify-between">
               <span className="text-gray-400">Gmail accounts needed</span>
               <span className="text-white font-medium">{gmailsNeeded} × Gmail</span>
             </div>
-
             <button onClick={() => setStep(2)} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition-colors">Continue →</button>
           </div>
         )}
 
-        {/* Step 2 — Gmail Setup */}
         {step === 2 && (
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
             <h2 className="font-bold text-lg">Gmail Setup</h2>
@@ -196,7 +189,6 @@ export default function RenewPage() {
           </div>
         )}
 
-        {/* Step 3 — Payment */}
         {step === 3 && (
           <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
             <h2 className="font-bold text-lg">Pay via bKash</h2>
@@ -214,4 +206,34 @@ export default function RenewPage() {
               <p className="text-xs text-gray-400">2. Number: <span className="text-white font-mono font-bold">{settings.bkash_number}</span></p>
               <p className="text-xs text-gray-400">3. Amount: <span className="text-white font-bold">{priceBDT} BDT</span></p>
               <p className="text-xs text-gray-400">4. Paste Transaction ID below</p>
-            </d
+            </div>
+            <input type="text" value={txId} onChange={(e) => setTxId(e.target.value)} placeholder="Transaction ID (e.g. 8N6YG2ABCD)"
+              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button onClick={handlePayment} disabled={!txId || loading}
+              className="w-full bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl">
+              {loading ? "Submitting..." : "Submit Payment"}
+            </button>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center space-y-4">
+            <div className="w-16 h-16 bg-emerald-950 rounded-2xl flex items-center justify-center mx-auto">
+              <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-xl font-bold">Payment Submitted!</h2>
+            <p className="text-gray-400 text-sm">Admin will approve shortly. Your API will activate automatically.</p>
+            <Link href="/user/dashboard" className="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl">Go to Dashboard</Link>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function Loading() {
+  return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>;
+}
