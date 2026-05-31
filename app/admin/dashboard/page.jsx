@@ -1,6 +1,12 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 export default function AdminDashboard() {
   const router = useRouter();
@@ -11,7 +17,19 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState({});
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => {
+    fetchAll();
+
+    // Supabase Realtime — instant update when new payment arrives
+    const channel = supabaseClient
+      .channel("payments-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "payments" }, () => {
+        fetchAll();
+      })
+      .subscribe();
+
+    return () => { supabaseClient.removeChannel(channel); };
+  }, []);
 
   async function fetchAll() {
     const [pRes, sRes, cRes] = await Promise.all([
