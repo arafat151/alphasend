@@ -4,39 +4,30 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 
 const RATE = 133;
-const MIN = 500;
+const MIN = 100;
 const MAX = 5000;
-const STEP = 500;
-const SNAPS = [500,1000,1500,2000,2500,3000,3500,4000,4500,5000];
-
-function snapValue(raw) {
-  const clamped = Math.max(MIN, Math.min(MAX, raw));
-  let closest = SNAPS[0];
-  let minDist = Math.abs(clamped - SNAPS[0]);
-  for (const s of SNAPS) {
-    const d = Math.abs(clamped - s);
-    if (d < minDist) { minDist = d; closest = s; }
-  }
-  return closest;
-}
+const STEP = 10;
 
 export default function PricingPage() {
   const [daily, setDaily] = useState(500);
   const sliderRef = useRef(null);
   const isDragging = useRef(false);
 
-  const gmailsNeeded = daily / 500;
+  const gmailsNeeded = Math.ceil(daily / 500);
   const monthly = daily * 30;
   const priceUSD = (daily * 0.01).toFixed(2);
   const priceBDT = Math.round(daily * 0.01 * RATE);
 
   function valueToPercent(v) { return ((v - MIN) / (MAX - MIN)) * 100; }
-  function percentToValue(pct) { return MIN + (pct / 100) * (MAX - MIN); }
+  function percentToValue(pct) {
+    const raw = MIN + (pct / 100) * (MAX - MIN);
+    return Math.round(raw / STEP) * STEP;
+  }
 
   function handleSliderInteraction(clientX) {
     const rect = sliderRef.current.getBoundingClientRect();
     const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-    setDaily(snapValue(percentToValue(pct)));
+    setDaily(Math.max(MIN, Math.min(MAX, percentToValue(pct))));
   }
 
   function onMouseDown(e) { isDragging.current = true; handleSliderInteraction(e.clientX); }
@@ -97,7 +88,7 @@ export default function PricingPage() {
 
           <div className="mb-6">
             <div className="flex justify-between text-xs text-gray-600 mb-2">
-              <span>500/day</span>
+              <span>100/day</span>
               <span className="text-gray-400 font-medium">{daily.toLocaleString()}/day selected</span>
               <span>5,000/day</span>
             </div>
@@ -107,15 +98,11 @@ export default function PricingPage() {
               onTouchMove={(e) => handleSliderInteraction(e.touches[0].clientX)}>
               <div className="absolute w-full h-2 bg-gray-800 rounded-full" />
               <div className="absolute h-2 bg-indigo-600 rounded-full transition-all duration-75" style={{ width: `${pct}%` }} />
-              {SNAPS.map((v) => (
-                <div key={v} className={`absolute w-1 h-3 rounded-full transition-colors ${daily >= v ? "bg-indigo-400" : "bg-gray-700"}`}
-                  style={{ left: `calc(${valueToPercent(v)}% - 2px)` }} />
-              ))}
               <div className="absolute w-6 h-6 bg-indigo-500 rounded-full border-2 border-white shadow-lg shadow-indigo-900/50 transition-all duration-75 hover:scale-110"
                 style={{ left: `calc(${pct}% - 12px)` }} />
             </div>
             <div className="relative mt-1 h-5">
-              {[500,1000,2000,3000,4000,5000].map((v) => (
+              {[100,500,1000,2000,3000,5000].map((v) => (
                 <button key={v} onClick={() => setDaily(v)}
                   className={`absolute text-xs -translate-x-1/2 transition-colors ${daily === v ? "text-indigo-400 font-bold" : "text-gray-600 hover:text-gray-400"}`}
                   style={{ left: `${valueToPercent(v)}%` }}>
@@ -177,3 +164,4 @@ function StatBox({ label, value, unit, color = "text-white" }) {
     </div>
   );
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              

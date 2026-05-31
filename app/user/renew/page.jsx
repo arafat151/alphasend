@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 const RATE = 133;
+const MIN = 100;
+const MAX = 5000;
+const STEP = 10;
 
 export default function RenewPage() {
   const router = useRouter();
@@ -17,8 +20,29 @@ export default function RenewPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [subId, setSubId] = useState(null);
+  const sliderRef = useRef(null);
+  const isDragging = useRef(false);
 
-  const gmailsNeeded = daily / 500;
+  const gmailsNeeded = Math.ceil(daily / 500);
+
+  function valueToPercent(v) { return ((v - MIN) / (MAX - MIN)) * 100; }
+  function percentToValue(pct) {
+    const raw = MIN + (pct / 100) * (MAX - MIN);
+    return Math.max(MIN, Math.min(MAX, Math.round(raw / STEP) * STEP));
+  }
+  function handleSliderInteraction(clientX) {
+    const rect = sliderRef.current.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    setDaily(percentToValue(pct));
+  }
+  function onMouseDown(e) { isDragging.current = true; handleSliderInteraction(e.clientX); }
+  useEffect(() => {
+    function onMouseMove(e) { if (isDragging.current) handleSliderInteraction(e.clientX); }
+    function onMouseUp() { isDragging.current = false; }
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+    return () => { window.removeEventListener("mousemove", onMouseMove); window.removeEventListener("mouseup", onMouseUp); };
+  }, []);
   const priceUSD = parseFloat((daily * 0.01).toFixed(2));
   const priceBDT = Math.round(priceUSD * parseInt(settings.usd_to_bdt_rate || RATE));
 
@@ -99,29 +123,44 @@ export default function RenewPage() {
 
         {/* Step 1 — Plan */}
         {step === 1 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-4">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-6 space-y-5">
             <h2 className="font-bold text-lg">Choose your plan</h2>
-            <p className="text-xs text-gray-400">Each 500 emails/day = 1 Gmail account = $5/month</p>
-            <div className="space-y-2">
-              {[500,1000,1500,2000,2500,3000].map((v) => (
-                <button key={v} onClick={() => setDaily(v)}
-                  className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all ${daily === v ? "border-indigo-500 bg-indigo-950/40" : "border-gray-700 hover:border-gray-600"}`}>
-                  <div className="flex items-center gap-3">
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${daily === v ? "border-indigo-500" : "border-gray-600"}`}>
-                      {daily === v && <div className="w-2 h-2 rounded-full bg-indigo-500" />}
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-medium">{v.toLocaleString()} emails/day · {v/500} Gmail{v > 500 ? "s" : ""}</p>
-                      <p className="text-xs text-gray-500">~{(v*30).toLocaleString()} emails/month</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold text-indigo-400">${(v*0.01).toFixed(2)}/mo</p>
-                    <p className="text-xs text-gray-500">{Math.round(v*0.01*parseInt(settings.usd_to_bdt_rate))} BDT</p>
-                  </div>
-                </button>
-              ))}
+            <p className="text-xs text-gray-400">$0.01/email/month · Every 500/day needs 1 Gmail</p>
+
+            <div className="text-center py-3">
+              <p className="text-4xl font-extrabold text-white">{daily.toLocaleString()}<span className="text-lg text-gray-500 font-normal"> emails/day</span></p>
+              <p className="text-indigo-400 font-semibold mt-1">${(daily*0.01).toFixed(2)}/mo <span className="text-gray-500 text-sm">≈ {Math.round(daily*0.01*parseInt(settings.usd_to_bdt_rate||RATE))} BDT</span></p>
             </div>
+
+            <div>
+              <div className="flex justify-between text-xs text-gray-600 mb-2">
+                <span>100/day</span><span>5,000/day</span>
+              </div>
+              <div ref={sliderRef} className="relative h-10 flex items-center cursor-pointer select-none"
+                onMouseDown={onMouseDown}
+                onTouchStart={(e) => handleSliderInteraction(e.touches[0].clientX)}
+                onTouchMove={(e) => handleSliderInteraction(e.touches[0].clientX)}>
+                <div className="absolute w-full h-2 bg-gray-800 rounded-full" />
+                <div className="absolute h-2 bg-indigo-600 rounded-full" style={{ width: `${valueToPercent(daily)}%` }} />
+                <div className="absolute w-6 h-6 bg-indigo-500 rounded-full border-2 border-white shadow-lg"
+                  style={{ left: `calc(${valueToPercent(daily)}% - 12px)` }} />
+              </div>
+              <div className="relative mt-1 h-5">
+                {[100,500,1000,2000,3000,5000].map((v) => (
+                  <button key={v} onClick={() => setDaily(v)}
+                    className={`absolute text-xs -translate-x-1/2 ${daily===v?"text-indigo-400 font-bold":"text-gray-600 hover:text-gray-400"}`}
+                    style={{ left: `${valueToPercent(v)}%` }}>
+                    {v>=1000?`${v/1000}k`:v}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="bg-gray-800/50 rounded-xl p-3 text-sm flex justify-between">
+              <span className="text-gray-400">Gmail accounts needed</span>
+              <span className="text-white font-medium">{gmailsNeeded} × Gmail</span>
+            </div>
+
             <button onClick={() => setStep(2)} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 rounded-xl transition-colors">Continue →</button>
           </div>
         )}
@@ -175,35 +214,4 @@ export default function RenewPage() {
               <p className="text-xs text-gray-400">2. Number: <span className="text-white font-mono font-bold">{settings.bkash_number}</span></p>
               <p className="text-xs text-gray-400">3. Amount: <span className="text-white font-bold">{priceBDT} BDT</span></p>
               <p className="text-xs text-gray-400">4. Paste Transaction ID below</p>
-            </div>
-            <input type="text" value={txId} onChange={(e) => setTxId(e.target.value)} placeholder="Transaction ID (e.g. 8N6YG2ABCD)"
-              className="w-full bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500" />
-            {error && <p className="text-red-400 text-sm">{error}</p>}
-            <button onClick={handlePayment} disabled={!txId || loading}
-              className="w-full bg-pink-600 hover:bg-pink-500 disabled:opacity-50 text-white font-semibold py-3 rounded-xl">
-              {loading ? "Submitting..." : "Submit Payment"}
-            </button>
-          </div>
-        )}
-
-        {/* Step 4 — Done */}
-        {step === 4 && (
-          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 text-center space-y-4">
-            <div className="w-16 h-16 bg-emerald-950 rounded-2xl flex items-center justify-center mx-auto">
-              <svg className="w-8 h-8 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h2 className="text-xl font-bold">Payment Submitted!</h2>
-            <p className="text-gray-400 text-sm">Admin will approve shortly. Your API will activate automatically.</p>
-            <Link href="/user/dashboard" className="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-6 py-3 rounded-xl">Go to Dashboard</Link>
-          </div>
-        )}
-      </main>
-    </div>
-  );
-}
-
-function Loading() {
-  return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" /></div>;
-}
+            </d
